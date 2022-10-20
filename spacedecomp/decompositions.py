@@ -5,6 +5,9 @@ from tqdm.autonotebook import tqdm
 from sklearn.decomposition import NMF
 
 
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
+
 
 class FA:
     def __init__(self, data, laten_dim=2, train_loadings=False):
@@ -13,7 +16,7 @@ class FA:
         
 
         #initiate pytorch variables
-        self.y_sig = torch.tensor(np.random.rand(self.J), dtype=torch.float, requires_grad= True)
+        self.y_sig = torch.tensor(np.random.rand(self.J), dtype=torch.float, requires_grad= True, device=device)
 
         self.params = [self.y_sig]
 
@@ -27,27 +30,28 @@ class FA:
         C = np.dot(Y.T, Y)
         V, _, _ = np.linalg.svd(C)
         V = V*np.sqrt(self.J)
-        self.W = torch.tensor(V[:,:self.L], dtype=torch.float, requires_grad=requires_grad)
+        self.W = torch.tensor(V[:,:self.L], dtype=torch.float, requires_grad=requires_grad, device=device)
         if requires_grad:
             self.params.append(self.W)
 
     def initiate_F(self):
         
-        f_sig = torch.tensor(np.ones(self.L), dtype=torch.float)
-        f_mean = torch.tensor(np.zeros(self.L), dtype=torch.float)
+        f_sig = torch.tensor(np.ones(self.L), dtype=torch.float, device=device)
+        f_mean = torch.tensor(np.zeros(self.L), dtype=torch.float, device=device)
         self.p_f = torch.distributions.Normal(f_mean, f_sig)
 
-        self.f_qsig = torch.tensor(np.random.rand(self.N, self.L), dtype=torch.float, requires_grad=True)
-        self.f_qmean = torch.tensor(np.random.randn(self.N, self.L), dtype=torch.float, requires_grad=True)
+        self.f_qsig = torch.tensor(np.random.rand(self.N, self.L), dtype=torch.float, requires_grad=True, device=device)
+        self.f_qmean = torch.tensor(np.random.randn(self.N, self.L), dtype=torch.float, requires_grad=True, device=device)
         self.params.append(self.f_qsig)
         self.params.append(self.f_qmean)
 
     def get_factors(self):
         q_f = torch.distributions.Normal(self.f_qmean, torch.abs(self.f_qsig))
         F = q_f.rsample()
-        return F.detach().numpy()
+        return F.detach().cpu().numpy()
 
     def train(self, data, epochs=500, lr=1e-2):
+        data = data.type(dtype)
         optimizer= optim.Adam(self.params, lr=lr)
         running_loss = []
         for _ in tqdm(range(epochs)):
@@ -120,6 +124,8 @@ class PNMF:
     def train(self, data, epochs=500, lr=1e-2):
         optimizer= optim.Adam(self.params, lr=lr)
         running_loss = []
+
+        data = data.type(dtype)
         for _ in tqdm(range(epochs)):
 
             optimizer.zero_grad()
@@ -129,11 +135,11 @@ class PNMF:
 
             p_y = torch.distributions.Poisson((torch.abs(self.y_sig) * y_mu.T).T)
 
-            E = p_y.log_prob(data).sum(axis=1)
+            E = p_y.log_prob(data).sum()
 
-            KL = torch.distributions.kl_divergence(q_f, self.p_f).sum(axis=1)
+            KL = torch.distributions.kl_divergence(q_f, self.p_f).sum()
 
-            elbo = torch.mean(E)-torch.mean(KL)
+            elbo = E - KL
             loss = -elbo
             loss.backward()
 
