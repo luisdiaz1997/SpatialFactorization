@@ -9,7 +9,6 @@ from .kernels import RBF
 
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 
 
 class Factorization:
@@ -117,7 +116,7 @@ class Factorization:
 
             p_y = self.probability(y_mu)
 
-            E = p_y.log_prob(data).sum()
+            E = p_y.log_prob(data).sum()/self.N
 
             if self.spatial:
                 KL = 0
@@ -130,7 +129,7 @@ class Factorization:
                 KL = torch.distributions.kl_divergence(self.q_f, self.p_f).sum()
 
             elbo = E-KL
-            loss = -elbo/self.N
+            loss = -elbo
             loss.backward()
 
             optimizer.step()
