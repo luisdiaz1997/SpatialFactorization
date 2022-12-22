@@ -7,18 +7,55 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 class RBF:
 
-    def __init__(self):
+    def __init__(self, X: np.ndarray = None, variance = None, lengthscale = None):
 
-        self.sigma = torch.tensor(np.random.rand(1,1), dtype=torch.float, device=device, requires_grad= True)
-        self.lengthscale = torch.tensor(np.random.rand(1,1), dtype=torch.float, device=device, requires_grad= True)
-        self.distance = None
 
-    def build_distance_mat(self, X: np.ndarray):
-        self.distance = torch.tensor(distance_matrix(X, X), dtype=torch.float)
+        self.sigma = torch.tensor(np.random.rand(1,1), dtype=torch.float, device=device, requires_grad= True) if variance is None else torch.tensor([variance**0.5], device=device, requires_grad=True, dtype=torch.float)
+        self.lengthscale = torch.tensor(np.random.rand(1,1), dtype=torch.float, device=device, requires_grad= True) if lengthscale is None else torch.tensor([lengthscale], device=device, requires_grad=True, dtype=torch.float)
+        self.X = X
+        self.distance = self.build_distance_mat(self.X, self.X) if self.X else None
 
-    def __call__(self, X = None):
+    def build_distance_mat(self, X: np.ndarray, Y: np.ndarray):
 
-        if X is not None:
-            self.build_distance_mat(X)
+        return torch.tensor(distance_matrix(X, Y), dtype=torch.float, device=device)
 
-        return (self.sigma**2) * torch.exp(-0.5 * (self.distance/self.lengthscale)**2)
+
+    def predict(self, X: np.ndarray = None, Y: np.ndarray = None):
+        '''
+        Uses distance matrix with the current data X or with unseen data Y to build kernel matrix.
+
+        Parameters:
+            X (np.ndarray): new training
+            Y (np.ndarray): test data
+        
+        Returns:
+            kernel (torch.Tensor): Kernel of K(X, X) or K(X, Y)
+        '''
+
+        if X is None:
+            if self.X is None: #If X is still None
+                raise RuntimeError('Failed to initialize training data, please initialize self.X or use custom X')
+            
+            X = self.X
+            distance = self.distance if Y is None else self.build_distance_mat(X, Y)
+        
+        else:
+            distance = self.build_distance_mat(X, X) if Y is None else self.build_distance_mat(X, Y)
+        
+        
+
+        return (self.sigma**2) * torch.exp(-0.5 * (distance/self.lengthscale)**2)
+
+
+
+    def params(self):
+        return [self.sigma, self.lengthscale]
+
+    def __call__(self, X : np.ndarray = None):
+
+        if self.X is None:
+            self.X = X
+            self.distance = self.build_distance_mat(self.X, self.X)
+
+        
+        return self.predict()
