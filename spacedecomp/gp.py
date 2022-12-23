@@ -42,7 +42,27 @@ class GP:
         print('covariance: ', cov.shape)
 
         return mean, cov
+    
+    def fit(self, optimizer, lr=0.005, epochs=1000):
+
+        opt = optimizer(self.params(), lr=lr)
+        running_loss = []
+        for _ in range(epochs):  # loop over the dataset multiple times
         
+            opt.zero_grad()
+            J = -self.log_likelihood()
+            J.backward()
+            
+            opt.step()
+            opt.zero_grad()
+
+            # print statistics
+            running_loss.append(J.item())
+
+        print('Finished Training')
+
+        return running_loss
+
 
 
 
