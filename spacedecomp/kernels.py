@@ -11,8 +11,8 @@ class Kernel(ABC):
     
     def __init__(self, X: torch.Tensor = None, variance=None, lengthscale = None) -> None:
 
-        self.sigma = torch.tensor(np.random.rand(1,1), dtype=torch.float, device=device, requires_grad= True) if variance is None else torch.tensor([variance**0.5], device=device, requires_grad=True, dtype=torch.float)
-        self.lengthscale = torch.tensor(np.random.rand(1,1), dtype=torch.float, device=device, requires_grad= True) if lengthscale is None else torch.tensor([lengthscale], device=device, requires_grad=True, dtype=torch.float)
+        self.sigma = torch.rand((1,1), dtype=torch.float, device=device, requires_grad= True) if variance is None else torch.tensor([variance**0.5], device=device, requires_grad=True, dtype=torch.float)
+        self.lengthscale = torch.rand((1,1), dtype=torch.float, device=device, requires_grad= True) if lengthscale is None else torch.tensor([lengthscale], device=device, requires_grad=True, dtype=torch.float)
         self.X = X
         self.distance = self.build_distance_mat(self.X, self.X) if self.X else None
         self.parameters = [self.sigma, self.lengthscale]
@@ -110,7 +110,13 @@ class Periodic(Kernel):
 
         super(Periodic, self).__init__(X, variance, lengthscale)
         self.p = 1
-        self.period = torch.tensor(2*np.pi*np.random.rand(1,1), dtype=torch.float, device=device, requires_grad= True) if period is None else torch.tensor([period], device=device, requires_grad=True, dtype=torch.float)
+
+        if period is None:
+            d = np.pi + np.pi*torch.rand(1,1)
+
+            self.period = d.clone().detach().requires_grad_(True)
+        else:
+            self.period = torch.tensor([period], device=device, requires_grad=True, dtype=torch.float)
         self.parameters.append(self.period)
 
     @property
