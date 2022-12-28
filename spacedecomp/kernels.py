@@ -2,14 +2,14 @@ import torch
 import numpy as np
 from abc import ABC, abstractmethod
 
-from scipy.spatial import distance_matrix
+from torch import cdist
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 
 class Kernel(ABC):
     
-    def __init__(self, X: np.ndarray = None, variance=None, lengthscale = None) -> None:
+    def __init__(self, X: torch.Tensor = None, variance=None, lengthscale = None) -> None:
 
         self.sigma = torch.tensor(np.random.rand(1,1), dtype=torch.float, device=device, requires_grad= True) if variance is None else torch.tensor([variance**0.5], device=device, requires_grad=True, dtype=torch.float)
         self.lengthscale = torch.tensor(np.random.rand(1,1), dtype=torch.float, device=device, requires_grad= True) if lengthscale is None else torch.tensor([lengthscale], device=device, requires_grad=True, dtype=torch.float)
@@ -17,9 +17,9 @@ class Kernel(ABC):
         self.distance = self.build_distance_mat(self.X, self.X) if self.X else None
         self.parameters = [self.sigma, self.lengthscale]
     
-    def build_distance_mat(self, X: np.ndarray, Y: np.ndarray) -> torch.Tensor:
+    def build_distance_mat(self, X: torch.Tensor, Y: torch.Tensor) -> torch.Tensor:
 
-        return torch.tensor(distance_matrix(X, Y, p=self.norm), dtype=torch.float, device=device)
+        return cdist(X, Y, p=self.norm)
 
     @property
     @abstractmethod
@@ -35,13 +35,13 @@ class Kernel(ABC):
         return self.parameters
 
 
-    def predict(self, X: np.ndarray = None, Y: np.ndarray = None):
+    def predict(self, X: torch.Tensor = None, Y: torch.Tensor = None):
         '''
         Uses distance matrix with the current data X or with unseen data Y to build kernel matrix.
 
         Parameters:
-            X (np.ndarray): new training
-            Y (np.ndarray): test data
+            X (torch.Tensor): new training
+            Y (torch.Tensor): test data
         
         Returns:
             kernel (torch.Tensor): Kernel of K(X, X) or K(X, Y)
@@ -72,7 +72,7 @@ class Kernel(ABC):
 
 class RBF(Kernel):
 
-    def __init__(self, X: np.ndarray = None, variance = None, lengthscale = None):
+    def __init__(self, X: torch.Tensor = None, variance = None, lengthscale = None):
 
         super(RBF, self).__init__(X, variance, lengthscale)
         self.p = 2
@@ -86,7 +86,7 @@ class RBF(Kernel):
 
 class Matern(Kernel):
 
-    def __init__(self, X: np.ndarray = None, variance = None, lengthscale = None):
+    def __init__(self, X: torch.Tensor = None, variance = None, lengthscale = None):
 
 
         super(Matern, self).__init__(X, variance, lengthscale)
@@ -105,7 +105,7 @@ class Matern(Kernel):
 
 class Periodic(Kernel):
 
-    def __init__(self, X: np.ndarray = None, variance = None, lengthscale = None, period = None):
+    def __init__(self, X: torch.Tensor = None, variance = None, lengthscale = None, period = None):
 
 
         super(Periodic, self).__init__(X, variance, lengthscale)
