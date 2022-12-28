@@ -36,10 +36,12 @@ class GP:
         mean = K21 @ torch.inverse(K11) @ (self.y[:, None])
         mean = torch.squeeze(mean)
 
-        print('mean: ', mean.shape)
-
         cov = K22 - (K21@torch.inverse(K11)@K12)
-        print('covariance: ', cov.shape)
+
+        if verbose:
+            print('mean: ', mean.shape)
+            print('covariance: ', cov.shape)
+        
 
         return mean, cov
     
