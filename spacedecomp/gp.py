@@ -9,7 +9,7 @@ class GP:
 
     def __init__(self, X, y, kernel, noise=0.1):
         
-        self.y = torch.tensor(y, dtype=torch.float, device=device)
+        self.y = y
         self.kernel = kernel
         self.noise = torch.tensor(noise, dtype=torch.float, device=device, requires_grad= True)
         self.X = X
@@ -31,15 +31,16 @@ class GP:
         K11 = self.kernel() + (self.noise**2)*torch.eye(self.N)
         K12 = self.kernel.predict(Y=Xtest)
         K21 = K12.T
-        K22 = self.kernel.predict(X=Xtest, Y=Xtest) #+ (self.noise**2)*torch.eye(Xtest.shape[0])
-
+        K22 = self.kernel.predict(X=Xtest, Y=Xtest)
         mean = K21 @ torch.inverse(K11) @ (self.y[:, None])
         mean = torch.squeeze(mean)
 
-        print('mean: ', mean.shape)
-
         cov = K22 - (K21@torch.inverse(K11)@K12)
-        print('covariance: ', cov.shape)
+
+        if verbose:
+            print('mean: ', mean.shape)
+            print('covariance: ', cov.shape)
+        
 
         return mean, cov
     
